@@ -3,6 +3,9 @@
 $stdout.sync = true
 $stderr.sync = true
 
+secret_shares = 3
+secret_threshold = 5
+
 puts "Starting vault-auto-unsealer."
 
 Signal.trap("TERM") do
@@ -14,6 +17,7 @@ if ENV["VAULT_ADDR"].nil?
 else
   puts "Using Vault instance at: #{ENV["VAULT_ADDR"]}"
 end
+
 
 require "vault"
 
@@ -33,15 +37,15 @@ if !Vault.sys.init_status.initialized?
   response = Vault.sys.init(
     pgp_keys: [pgp_key],
     root_token_pgp_key: pgp_key,
-    secret_shares: 1,
-    secret_threshold: 1,
+    secret_shares: secret_shares,
+    secret_threshold: secret_threshold,
   )
 
   puts <<EOS
 Vault initialized successfully.
 The following values are Base64 encoded and encrypted with OpenPGP.
 
-Unseal key: #{response.keys_base64.first}
+Unseal key: #{response.keys_base64}
 Root token: #{response.root_token}
 
 Redeploy vault-auto-unsealer with the environment variable UNSEAL_KEY set to the decrypted unseal key.
@@ -50,26 +54,35 @@ else
   puts "Vault was already initialized."
 end
 
-unseal_key = ENV["UNSEAL_KEY"]
+unseal_keys = {}
 
-if unseal_key.nil? || unseal_key == ""
+cur = 1
+while cur < secret_threshold do
+  unseal_keys["unseal_key_" + cur.to_s] = ENV["UNSEAL_KEY_" + cur.to_s]
+
+  cur = cur + 1
+end
+
+if unseal_keys.nil?
   abort "Environment variable UNSEAL_KEY must be set to the decrypted Vault unseal key."
 end
 
-if unseal_key.bytesize != 64
-  puts <<EOS
-Placeholder UNSEAL_KEY detected.
-vault-auto-unsealer will now sleep until terminated with SIGTERM, so that Kubernetes will not try to restart it before an operator can redeploy it with UNSEAL_KEY set.
-EOS
-
-  sleep
-end
+# if unseal_key.bytesize != 64
+#   puts <<EOS
+# Placeholder UNSEAL_KEY detected.
+# vault-auto-unsealer will now sleep until terminated with SIGTERM, so that Kubernetes will not try to restart it before an operator can redeploy it with UNSEAL_KEY set.
+# EOS
+# 
+#   sleep
+# end
 
 puts "Entering main control loop. Vault will be checked every 30 seconds and unsealed if it is found sealed."
 
 loop do
   if Vault.sys.seal_status.sealed?
-    Vault.sys.unseal(unseal_key)
+    unseal_keys.each { |key, value|
+      Vault.sys.unseal(value)
+    }
 
     puts "Vault has been unsealed."
   end

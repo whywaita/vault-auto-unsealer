@@ -6,6 +6,14 @@ $stderr.sync = true
 secret_shares = 3
 secret_threshold = 5
 
+if not ENV["SECRET_SHARES"].nil?
+  secret_shares = ENV["SECRET_SHARES"]  # overwrite
+end
+
+if not ENV["SECRET_THRESHOLD"].nil?
+  secret_threshold = ENV["SECRET_THRESHOLD"]  # overwrite
+end
+
 puts "Starting vault-auto-unsealer."
 
 Signal.trap("TERM") do
@@ -17,7 +25,6 @@ if ENV["VAULT_ADDR"].nil?
 else
   puts "Using Vault instance at: #{ENV["VAULT_ADDR"]}"
 end
-
 
 require "vault"
 

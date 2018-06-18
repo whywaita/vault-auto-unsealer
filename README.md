@@ -12,9 +12,11 @@ Required environment variables:
 * `PGP_KEY_PATH`: Path to a file containing the OpenPGP public key that should be used to encrypt the unseal key and initial root token.
   This file should be the Base64 encoding of the binary version of the public key, NOT the ASCII armored format.
   Make sure you don't accidentally append a newline at the end of the file!
-* `UNSEAL_KEY`: The raw decrypted unseal key.
+* `UNSEAL_KEY_1`, `UNSEAL_KEY_2`, `UNSEAL_KEY_3`...: The raw decrypted unseal keys.
   When first deployed, set this to a placeholder value like "placeholder" and vault-auto-unsealer will initialize Vault.
   Any value that is not exactly 64 bytes is acceptable as a placeholder value.
+* `SECRET_SHARES`: number of need to unseal key. (default: 3)
+* `SECRET_THRESHOLD`: number of all private key. (default: 5)
 
 ## Usage
 
